@@ -1,0 +1,56 @@
+export const designTokens = {
+  colors: {
+    dark: {
+      background: '#0B0F14',
+      surface: '#111827',
+      surfaceAlt: '#1F2937',
+      border: '#2D3748',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#9CA3AF',
+      textMuted: '#6B7280',
+    },
+    light: {
+      background: '#FFFFFF',
+      surface: '#F9FAFB',
+      card: '#F3F4F6',
+      border: '#E5E7EB',
+      textPrimary: '#111827',
+      textSecondary: '#4B5563',
+      textMuted: '#6B7280',
+    },
+    accent: {
+      primary: '#F5C542',
+      primaryDark: '#D4A72C',
+      orange: '#FF8A3D',
+      pink: '#FF4D8D',
+    },
+  },
+  spacing: {
+    1: '0.25rem',
+    2: '0.5rem',
+    3: '0.75rem',
+    4: '1rem',
+    5: '1.25rem',
+    6: '1.5rem',
+    8: '2rem',
+    10: '2.5rem',
+    12: '3rem',
+  },
+  radius: {
+    xs: '0.25rem',
+    sm: '0.375rem',
+    md: '0.5rem',
+    lg: '0.5rem',
+  },
+  typography: {
+    sans: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    mono: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace',
+    baseSize: '16px',
+    lineHeight: '1.5',
+  },
+  shadows: {
+    card: '0 18px 42px rgba(0, 0, 0, 0.24)',
+    focus: '0 0 0 3px rgba(245, 197, 66, 0.24)',
+    glow: '0 18px 48px rgba(245, 197, 66, 0.16)',
+  },
+} as const

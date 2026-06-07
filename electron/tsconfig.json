@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.electron.tsbuildinfo",
+    "rootDir": ".",
+    "outDir": "../dist-electron",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
+    "sourceMap": true
+  },
+  "include": ["./**/*.ts"]
+}
