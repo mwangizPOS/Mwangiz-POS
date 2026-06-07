@@ -223,6 +223,28 @@ create table if not exists users (
   constraint chk_users_password_hash_not_blank check (length(trim(password_hash)) > 0)
 );
 
+create table if not exists auth_refresh_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  token_hash text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz null,
+  replaced_by_token_id uuid null,
+  constraint uq_auth_refresh_tokens_hash unique (token_hash),
+  constraint fk_auth_refresh_tokens_user
+    foreign key (user_id)
+    references users (id)
+    on update cascade
+    on delete cascade,
+  constraint fk_auth_refresh_tokens_replacement
+    foreign key (replaced_by_token_id)
+    references auth_refresh_tokens (id)
+    on update cascade
+    on delete set null,
+  constraint chk_auth_refresh_tokens_hash_not_blank check (length(trim(token_hash)) > 0)
+);
+
 create table if not exists branches (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -640,6 +662,12 @@ create index if not exists idx_services_name_lower on services (lower(name));
 create index if not exists idx_workers_branch_id on workers (branch_id);
 create index if not exists idx_workers_branch_active on workers (branch_id, active);
 create index if not exists idx_workers_phone on workers (phone);
+
+create index if not exists idx_auth_refresh_tokens_user_id on auth_refresh_tokens (user_id);
+create index if not exists idx_auth_refresh_tokens_expires_at on auth_refresh_tokens (expires_at);
+create index if not exists idx_auth_refresh_tokens_active
+  on auth_refresh_tokens (user_id, expires_at)
+  where revoked_at is null;
 
 create index if not exists idx_sales_branch_id on sales (branch_id);
 create index if not exists idx_sales_created_at on sales (created_at);

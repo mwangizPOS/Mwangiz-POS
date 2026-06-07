@@ -1,3 +1,4 @@
+export * from './authSchemas'
 export * from './branchSchemas'
 export * from './domainSchemas'
 export * from './eventSchemas'

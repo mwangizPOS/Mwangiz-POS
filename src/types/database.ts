@@ -34,6 +34,7 @@ export type DatabaseTableName =
   | 'refunds'
   | 'worker_settlements'
   | 'audit_logs'
+  | 'auth_refresh_tokens'
   | 'event_store'
   | 'idempotency_keys'
   | 'offline_queue'
@@ -177,6 +178,16 @@ export interface DbAuditLogRow {
   timestamp: DateTimeString
 }
 
+export interface DbAuthRefreshTokenRow {
+  id: EntityId
+  user_id: EntityId
+  token_hash: string
+  expires_at: DateTimeString
+  created_at: DateTimeString
+  revoked_at: DateTimeString | null
+  replaced_by_token_id: EntityId | null
+}
+
 export interface DbEventStoreRow {
   event_id: EntityId
   event_type: EventType
@@ -225,6 +236,7 @@ export interface DatabaseRows {
   refunds: DbRefundRow
   worker_settlements: DbWorkerSettlementRow
   audit_logs: DbAuditLogRow
+  auth_refresh_tokens: DbAuthRefreshTokenRow
   event_store: DbEventStoreRow
   idempotency_keys: DbIdempotencyKeyRow
   offline_queue: DbOfflineQueueRow

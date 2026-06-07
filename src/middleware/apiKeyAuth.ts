@@ -12,8 +12,7 @@ export function apiKeyAuth(request: Request, _response: Response, next: NextFunc
     throw new ApiError(500, 'ApiKeyNotConfigured', 'BACKEND_API_KEY is required in production.')
   }
 
-  const bearerToken = request.header('authorization')?.replace(/^Bearer\s+/i, '')
-  const apiKey = request.header('x-api-key') ?? bearerToken
+  const apiKey = request.header('x-api-key') ?? request.header('x-backend-api-key')
 
   if (apiKey !== env.backendApiKey) {
     throw new ApiError(401, 'Unauthorized', 'A valid API key is required.')
