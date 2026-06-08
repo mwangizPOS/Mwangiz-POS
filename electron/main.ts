@@ -1,10 +1,13 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
+import electronCommon from 'electron/common'
+import electronMain from 'electron/main'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
+const { shell } = electronCommon
+const { app, BrowserWindow, ipcMain, nativeTheme } = electronMain
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({

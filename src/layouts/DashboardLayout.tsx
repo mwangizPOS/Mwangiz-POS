@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
-import { Bell, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
+import { getNavigationForRole, getRouteMeta, roleLabels } from '@/app/navigation'
+import { NotificationCenter } from '@/components/app/NotificationCenter'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +14,12 @@ type DashboardLayoutProps = {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const setCurrentView = useUiStore((state) => state.setCurrentView)
+  const activeRoute = useUiStore((state) => state.activeRoute)
+  const currentRole = useUiStore((state) => state.currentRole)
+  const setActiveRoute = useUiStore((state) => state.setActiveRoute)
+  const resetSession = useUiStore((state) => state.resetSession)
+  const routeMeta = getRouteMeta(activeRoute)
+  const mobileNavigation = getNavigationForRole(currentRole)
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -25,7 +32,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 lg:hidden">
                   <Badge>MWANGI'Z</Badge>
-                  <span className="text-sm font-semibold">Salon POS</span>
+                  <span className="truncate text-sm font-semibold">{routeMeta.label}</span>
                 </div>
                 <div className="hidden max-w-md items-center gap-2 rounded-md border bg-surface px-3 lg:flex">
                   <Search className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -38,16 +45,35 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <Badge variant="outline" className="hidden sm:inline-flex">
-                Nairobi HQ
+                {roleLabels[currentRole]}
               </Badge>
               <ThemeToggle />
-              <Button type="button" variant="outline" size="icon" aria-label="Notifications">
-                <Bell className="size-4" aria-hidden="true" />
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setCurrentView('login')}>
+              <NotificationCenter />
+              <Button type="button" variant="ghost" onClick={resetSession}>
                 Sign out
               </Button>
             </div>
+
+            <nav aria-label="Mobile navigation" className="mt-3 flex gap-2 overflow-x-auto lg:hidden">
+              {mobileNavigation.map((item) => {
+                const Icon = item.icon
+                const isActive = item.id === activeRoute
+
+                return (
+                  <Button
+                    key={item.id}
+                    type="button"
+                    variant={isActive ? 'default' : 'outline'}
+                    size="sm"
+                    className="min-w-max"
+                    onClick={() => setActiveRoute(item.id)}
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </nav>
           </header>
 
           <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>

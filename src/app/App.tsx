@@ -1,26 +1,29 @@
+import { ErrorBoundary } from '@/components/app/ErrorBoundary'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
-import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { LoginPage } from '@/pages/login/LoginPage'
 import { useUiStore } from '@/store/uiStore'
+import { AppRouter } from './AppRouter'
 import { ThemeProvider } from './providers/ThemeProvider'
 
 export function App() {
-  const currentView = useUiStore((state) => state.currentView)
+  const isAuthenticated = useUiStore((state) => state.isAuthenticated)
 
   return (
     <ThemeProvider>
       <TooltipProvider delayDuration={120}>
-        {currentView === 'login' ? (
-          <AuthLayout>
-            <LoginPage />
-          </AuthLayout>
-        ) : (
-          <DashboardLayout>
-            <DashboardPage />
-          </DashboardLayout>
-        )}
+        <ErrorBoundary>
+          {isAuthenticated ? (
+            <DashboardLayout>
+              <AppRouter />
+            </DashboardLayout>
+          ) : (
+            <AuthLayout>
+              <LoginPage />
+            </AuthLayout>
+          )}
+        </ErrorBoundary>
       </TooltipProvider>
     </ThemeProvider>
   )
