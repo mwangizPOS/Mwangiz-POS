@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Plus, ReceiptText, Save, Trash2, UserPlus } from 'lucide-react'
+import { FileText, Plus, ReceiptText, Save, Trash2, UserPlus, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/components/app/SectionHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { cashierServiceCatalog, cashierWorkers } from '@/pages/mockData'
 import { useUiStore } from '@/store/uiStore'
+import { useReferenceData } from '@/hooks/useReferenceData'
 import {
   calculateClientTotals,
   calculateSaleTotal,
@@ -21,6 +21,18 @@ import {
   type CashierSaleClientDraft,
   type CashierSaleItemDraft,
 } from './cashierSaleLogic'
+
+// Define the expected shapes based on schema
+interface ServiceRow {
+  id: string
+  name: string
+  default_price: number
+}
+
+interface WorkerRow {
+  id: string
+  full_name: string
+}
 
 export function NewSalePage() {
   const activeSaleDraft = useUiStore((state) => state.activeSaleDraft)
@@ -32,6 +44,12 @@ export function NewSalePage() {
   const clientTotals = useMemo(() => calculateClientTotals(clients), [clients])
   const grandTotal = useMemo(() => calculateSaleTotal(clients), [clients])
   const serviceLineCount = clients.reduce((sum, client) => sum + client.items.length, 0)
+
+  // Fetch real data
+  const { services, workers, isLoading: isDataLoading } = useReferenceData()
+
+  const safeServices = (services as unknown as ServiceRow[]) ?? []
+  const safeWorkers = (workers as unknown as WorkerRow[]) ?? []
 
   function updateDraft(clientsPatch: CashierSaleClientDraft[]) {
     setSaved(false)
@@ -66,8 +84,10 @@ export function NewSalePage() {
   }
 
   function addServiceRow(clientId: string) {
-    const defaultService = cashierServiceCatalog[0]
-    const defaultWorker = cashierWorkers[0]
+    if (safeServices.length === 0 || safeWorkers.length === 0) return
+
+    const defaultService = safeServices[0]
+    const defaultWorker = safeWorkers[0]
 
     updateDraft(
       clients.map((client) =>
@@ -80,7 +100,7 @@ export function NewSalePage() {
                   id: `item-${Date.now()}-${client.items.length}`,
                   serviceId: defaultService.id,
                   workerId: defaultWorker.id,
-                  price: defaultService.defaultPrice,
+                  price: Number(defaultService.default_price),
                 },
               ],
             }
@@ -103,10 +123,10 @@ export function NewSalePage() {
   }
 
   function handleServiceChange(clientId: string, itemId: string, serviceId: string) {
-    const selectedService = cashierServiceCatalog.find((service) => service.id === serviceId)
+    const selectedService = safeServices.find((service) => service.id === serviceId)
     updateServiceRow(clientId, itemId, {
       serviceId,
-      price: selectedService?.defaultPrice ?? 0,
+      price: selectedService ? Number(selectedService.default_price) : 0,
     })
   }
 
@@ -126,6 +146,14 @@ export function NewSalePage() {
   function saveDraft() {
     saveActiveSaleDraft()
     setSaved(true)
+  }
+
+  if (isDataLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -178,6 +206,8 @@ export function NewSalePage() {
               client={client}
               index={index}
               canRemove={clients.length > 1}
+              services={safeServices}
+              workers={safeWorkers}
               onLabelChange={updateClientLabel}
               onRemoveClient={removeClient}
               onAddService={addServiceRow}
@@ -221,6 +251,8 @@ function ClientSaleCard({
   client,
   index,
   canRemove,
+  services,
+  workers,
   onLabelChange,
   onRemoveClient,
   onAddService,
@@ -232,6 +264,8 @@ function ClientSaleCard({
   client: CashierSaleClientDraft
   index: number
   canRemove: boolean
+  services: ServiceRow[]
+  workers: WorkerRow[]
   onLabelChange: (clientId: string, label: string) => void
   onRemoveClient: (clientId: string) => void
   onAddService: (clientId: string) => void
@@ -286,6 +320,8 @@ function ClientSaleCard({
                   key={item.id}
                   item={item}
                   clientId={client.id}
+                  services={services}
+                  workers={workers}
                   onServiceChange={onServiceChange}
                   onWorkerChange={onWorkerChange}
                   onPriceChange={onPriceChange}
@@ -303,6 +339,8 @@ function ClientSaleCard({
 function ServiceRow({
   clientId,
   item,
+  services,
+  workers,
   onServiceChange,
   onWorkerChange,
   onPriceChange,
@@ -310,6 +348,8 @@ function ServiceRow({
 }: {
   clientId: string
   item: CashierSaleItemDraft
+  services: ServiceRow[]
+  workers: WorkerRow[]
   onServiceChange: (clientId: string, itemId: string, serviceId: string) => void
   onWorkerChange: (clientId: string, itemId: string, workerId: string) => void
   onPriceChange: (clientId: string, itemId: string, price: number) => void
@@ -327,7 +367,7 @@ function ServiceRow({
           onChange={(event) => onServiceChange(clientId, item.id, event.target.value)}
           className="h-11 rounded-md border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
         >
-          {cashierServiceCatalog.map((service) => (
+          {services.map((service) => (
             <option key={service.id} value={service.id}>
               {service.name}
             </option>
@@ -345,9 +385,9 @@ function ServiceRow({
           onChange={(event) => onWorkerChange(clientId, item.id, event.target.value)}
           className="h-11 rounded-md border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
         >
-          {cashierWorkers.map((worker) => (
+          {workers.map((worker) => (
             <option key={worker.id} value={worker.id}>
-              {worker.name}
+              {worker.full_name}
             </option>
           ))}
         </select>

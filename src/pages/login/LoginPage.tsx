@@ -1,9 +1,9 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
-import type { AuthenticatedUser, LoginRequest } from '@/auth/types'
-import { getDefaultRouteForRole, roleLabels } from '@/app/navigation'
+import { AlertCircle, LockKeyhole, Mail, Loader2 } from 'lucide-react'
+import type { LoginRequest } from '@/auth/types'
+import { getDefaultRouteForRole } from '@/app/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,20 +13,18 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { SystemRole } from '@/domain/enums'
 import { useUiStore } from '@/store/uiStore'
 import { loginRequestSchema } from '@/validation/authSchemas'
+import { authService } from '@/services/frontend/authService'
 
 export function LoginPage() {
-  const [email, setEmail] = useState('cashier@mwangiz.local')
-  const [password, setPassword] = useState('password123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const setCurrentRole = useUiStore((state) => state.setCurrentRole)
-  const setCurrentUser = useUiStore((state) => state.setCurrentUser)
-  const setAuthenticated = useUiStore((state) => state.setAuthenticated)
+  const [loading, setLoading] = useState(false)
   const setActiveRoute = useUiStore((state) => state.setActiveRoute)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const request: LoginRequest = { email, password }
@@ -37,18 +35,21 @@ export function LoginPage() {
       return
     }
 
-    const role = resolveUiRoleFromEmail(parsed.data.email)
-    const user: AuthenticatedUser = {
-      id: `ui-user-${role.toLowerCase()}`,
-      email: parsed.data.email,
-      role,
-    }
-
+    setLoading(true)
     setError('')
-    setCurrentUser(user)
-    setCurrentRole(role)
-    setActiveRoute(getDefaultRouteForRole(role))
-    setAuthenticated(true)
+
+    try {
+      const user = await authService.login(parsed.data)
+      setActiveRoute(getDefaultRouteForRole(user.role))
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError('Invalid credentials.')
+      } else {
+        setError('An error occurred during login. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -77,8 +78,9 @@ export function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="cashier@mwangiz.local"
+                  placeholder="name@example.com"
                   className="pl-10"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -97,6 +99,7 @@ export function LoginPage() {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Enter password"
                   className="pl-10"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -108,16 +111,15 @@ export function LoginPage() {
               </div>
             ) : null}
 
-            <div className="rounded-md border bg-background p-3 text-sm">
-              <div className="flex items-center gap-2 text-secondary-foreground">
-                <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
-                <span>Role is resolved from the authenticated user contract.</span>
-              </div>
-              <p className="mt-2 font-medium">{roleLabels[resolveUiRoleFromEmail(email)]}</p>
-            </div>
-
-            <Button type="submit" size="lg" className="mt-2 w-full">
-              Sign in
+            <Button type="submit" size="lg" className="mt-2 w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign in'
+              )}
             </Button>
           </form>
         </CardContent>
@@ -126,16 +128,3 @@ export function LoginPage() {
   )
 }
 
-function resolveUiRoleFromEmail(email: string) {
-  const normalizedEmail = email.trim().toLowerCase()
-
-  if (normalizedEmail === 'brioneroo@gmail.com' || normalizedEmail.includes('admin')) {
-    return SystemRole.SuperAdmin
-  }
-
-  if (normalizedEmail.includes('manager')) {
-    return SystemRole.BranchManager
-  }
-
-  return SystemRole.Cashier
-}

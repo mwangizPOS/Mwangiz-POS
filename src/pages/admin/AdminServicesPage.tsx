@@ -1,15 +1,27 @@
 import { useState } from 'react'
-import { GitBranch, Plus, Scissors } from 'lucide-react'
+import { GitBranch, Plus, Scissors, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/components/app/SectionHeader'
 import { Modal } from '@/components/app/Modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { services } from '@/pages/mockData'
+import { useReferenceData } from '@/hooks/useReferenceData'
+import { formatMoney } from '@/pages/cashier/cashierSaleLogic'
 
 export function AdminServicesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+
+  const { services, isLoading } = useReferenceData()
+  const safeServices = (services as any[]) ?? []
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -32,8 +44,13 @@ export function AdminServicesPage() {
       />
 
       <section className="grid gap-3 xl:grid-cols-2">
-        {services.map((service) => (
-          <Card key={service.name}>
+        {safeServices.length === 0 ? (
+          <div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-secondary-foreground">
+            No services found.
+          </div>
+        ) : null}
+        {safeServices.map((service) => (
+          <Card key={service.id}>
             <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
@@ -42,10 +59,10 @@ export function AdminServicesPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{service.name}</p>
-                    <Badge variant={service.scope === 'Global' ? 'default' : 'outline'}>{service.scope}</Badge>
+                    <Badge variant="default">Global</Badge>
                   </div>
                   <p className="mt-2 text-sm text-secondary-foreground">
-                    {service.price} · {service.commission} commission · {service.status}
+                    {formatMoney(service.default_price)} · {service.commission_percent}% commission · {service.active ? 'Active' : 'Disabled'}
                   </p>
                 </div>
               </div>

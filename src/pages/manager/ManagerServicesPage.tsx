@@ -1,16 +1,27 @@
 import { useState } from 'react'
-import { Edit, Plus, Scissors, ToggleLeft } from 'lucide-react'
+import { Edit, Plus, Scissors, ToggleLeft, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/components/app/SectionHeader'
 import { Modal } from '@/components/app/Modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { services } from '@/pages/mockData'
+import { useReferenceData } from '@/hooks/useReferenceData'
+import { formatMoney } from '@/pages/cashier/cashierSaleLogic'
 
 export function ManagerServicesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [editingService, setEditingService] = useState<string | null>(null)
+  const [editingService, setEditingService] = useState<any | null>(null)
+
+  const { services, isLoading } = useReferenceData()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -27,8 +38,13 @@ export function ManagerServicesPage() {
       />
 
       <section className="grid gap-3 xl:grid-cols-2">
-        {services.map((service) => (
-          <Card key={service.name}>
+        {services?.length === 0 ? (
+          <div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-secondary-foreground">
+            No services found.
+          </div>
+        ) : null}
+        {services?.map((service: any) => (
+          <Card key={service.id}>
             <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
@@ -37,20 +53,18 @@ export function ManagerServicesPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{service.name}</p>
-                    <Badge variant={service.status === 'Active' ? 'default' : 'outline'}>{service.status}</Badge>
+                    <Badge variant={service.active ? 'default' : 'outline'}>{service.active ? 'Active' : 'Disabled'}</Badge>
                   </div>
                   <p className="mt-2 text-sm text-secondary-foreground">
-                    {service.price} · {service.commission} commission · {service.scope}
+                    {formatMoney(service.default_price)} · {service.commission_percent}% commission
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 md:justify-end">
-                {service.scope === 'Branch' ? (
-                  <Button type="button" variant="outline" onClick={() => setEditingService(service.name)}>
-                    <Edit className="size-4" aria-hidden="true" />
-                    Edit
-                  </Button>
-                ) : null}
+                <Button type="button" variant="outline" onClick={() => setEditingService(service)}>
+                  <Edit className="size-4" aria-hidden="true" />
+                  Edit
+                </Button>
                 <Button type="button" variant="outline">
                   <ToggleLeft className="size-4" aria-hidden="true" />
                   Disable

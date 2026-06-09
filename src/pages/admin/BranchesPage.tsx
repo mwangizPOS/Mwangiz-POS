@@ -1,16 +1,31 @@
 import { useState } from 'react'
-import { Building2, Edit, Plus, ToggleLeft } from 'lucide-react'
+import { Building2, Edit, Plus, ToggleLeft, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/components/app/SectionHeader'
 import { Modal } from '@/components/app/Modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { branches } from '@/pages/mockData'
+import { useReferenceData } from '@/hooks/useReferenceData'
+import { useBranchRevenueProjection } from '@/hooks/useBranchRevenueProjection'
+import { formatMoney } from '@/pages/cashier/cashierSaleLogic'
 
 export function BranchesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [mpesaEnabled, setMpesaEnabled] = useState(false)
+
+  const { branches, isLoading: loadingBranches } = useReferenceData()
+  const { branchRevenues, isLoading: loadingRevenues } = useBranchRevenueProjection()
+
+  const safeBranches = (branches as any[]) ?? []
+
+  if (loadingBranches || loadingRevenues) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -27,37 +42,46 @@ export function BranchesPage() {
       />
 
       <section className="grid gap-3 xl:grid-cols-2">
-        {branches.map((branch) => (
-          <Card key={branch.code}>
-            <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
-              <div className="flex min-w-0 items-start gap-3">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
-                  <Building2 className="size-5" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold">{branch.name}</p>
-                    <Badge variant="outline">{branch.code}</Badge>
-                    <Badge>{branch.status}</Badge>
+        {safeBranches.length === 0 ? (
+          <div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-secondary-foreground">
+            No branches found.
+          </div>
+        ) : null}
+        {safeBranches.map((branch) => {
+          const rev = branchRevenues.find((r) => r.branch_id === branch.id)
+          const revenueText = rev ? formatMoney(rev.net_revenue) : 'KES 0'
+          return (
+            <Card key={branch.id}>
+              <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                    <Building2 className="size-5" aria-hidden="true" />
                   </div>
-                  <p className="mt-2 text-sm text-secondary-foreground">
-                    {branch.manager} · {branch.revenue}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{branch.name}</p>
+                      <Badge variant="outline">{branch.code}</Badge>
+                      <Badge>{branch.active ? 'Active' : 'Disabled'}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-secondary-foreground">
+                      Revenue: {revenueText}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2 md:justify-end">
-                <Button type="button" variant="outline">
-                  <Edit className="size-4" aria-hidden="true" />
-                  Edit
-                </Button>
-                <Button type="button" variant="outline">
-                  <ToggleLeft className="size-4" aria-hidden="true" />
-                  Disable
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  <Button type="button" variant="outline">
+                    <Edit className="size-4" aria-hidden="true" />
+                    Edit
+                  </Button>
+                  <Button type="button" variant="outline">
+                    <ToggleLeft className="size-4" aria-hidden="true" />
+                    Disable
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </section>
 
       <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Create branch" description="Set up a new branch with manager and cashier credentials.">

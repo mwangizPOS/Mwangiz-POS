@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Eye, RotateCcw, Search } from 'lucide-react'
+import { Eye, RotateCcw, Search, Loader2 } from 'lucide-react'
 import { EmptyState } from '@/components/app/EmptyState'
 import { Modal } from '@/components/app/Modal'
 import { SectionHeader } from '@/components/app/SectionHeader'
@@ -8,7 +8,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { paymentLogs, refundRequests } from '@/pages/mockData'
+import { useSalesProjection } from '@/hooks/useSalesProjection'
+import { useRefundProjection } from '@/hooks/useRefundProjection'
+import { saleService } from '@/services/frontend/saleService'
+import { formatMoney } from './cashierSaleLogic'
+import { useUiStore } from '@/store/uiStore'
 
 type RefundTab = 'Pending' | 'Approved' | 'Rejected'
 type RefundType = 'Full Refund' | 'Item Refund' | 'Partial Item Refund'
@@ -17,40 +21,68 @@ export function RefundsPage() {
   const [activeTab, setActiveTab] = useState<RefundTab>('Pending')
   const [query, setQuery] = useState('')
   const [saleQuery, setSaleQuery] = useState('')
-  const [selectedReceipt, setSelectedReceipt] = useState(paymentLogs[0]?.receipt ?? '')
+  const [selectedReceipt, setSelectedReceipt] = useState('')
   const [selectedRefundId, setSelectedRefundId] = useState<string | null>(null)
   const [refundType, setRefundType] = useState<RefundType>('Item Refund')
-  const [targetItem, setTargetItem] = useState(paymentLogs[0]?.items[0] ?? '')
+  const [targetItem, setTargetItem] = useState('')
   const [refundAmount, setRefundAmount] = useState('')
   const [reason, setReason] = useState('')
   const [createdPendingRequest, setCreatedPendingRequest] = useState(false)
-  const selectedSale = paymentLogs.find((sale) => sale.receipt === selectedReceipt) ?? paymentLogs[0]
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const currentUser = useUiStore((state) => state.currentUser)
+
+  const { sales: safeSales, isLoading: loadingSales } = useSalesProjection()
+  const { refunds: safeRefunds, isLoading: loadingRefunds } = useRefundProjection()
+
+  const selectedSale = safeSales.find((sale) => sale.sale_id === selectedReceipt)
   const filteredSales = useMemo(
     () =>
-      paymentLogs.filter((sale) =>
-        `${sale.receipt} ${sale.clients.join(' ')} ${sale.items.join(' ')}`.toLowerCase().includes(saleQuery.toLowerCase()),
+      safeSales.filter((sale) =>
+        `${sale.sale_id}`.toLowerCase().includes(saleQuery.toLowerCase()),
       ),
-    [saleQuery],
+    [saleQuery, safeSales],
   )
   const filteredRefunds = useMemo(
     () =>
-      refundRequests.filter((refund) => {
-        const haystack = `${refund.id} ${refund.receipt} ${refund.client} ${refund.service} ${refund.reason}`.toLowerCase()
+      (safeRefunds as any[]).filter((refund) => {
+        const haystack = `${refund.refund_id} ${refund.sale_id}`.toLowerCase()
         return refund.status === activeTab && haystack.includes(query.toLowerCase())
       }),
-    [activeTab, query],
+    [activeTab, query, safeRefunds],
   )
-  const selectedRefund = refundRequests.find((refund) => refund.id === selectedRefundId)
+  const selectedRefund = (safeRefunds as any[]).find((refund) => refund.refund_id === selectedRefundId)
 
   function selectSale(receipt: string) {
-    const sale = paymentLogs.find((item) => item.receipt === receipt)
+    const sale = safeSales.find((item) => item.sale_id === receipt)
     setSelectedReceipt(receipt)
-    setTargetItem(sale?.items[0] ?? '')
+    setTargetItem(sale?.sale_items_projection?.[0]?.sale_item_id ?? '')
     setCreatedPendingRequest(false)
   }
 
-  function createRefundRequest() {
-    setCreatedPendingRequest(true)
+  async function createRefundRequest() {
+    if (!currentUser) return
+    setIsSubmitting(true)
+    try {
+      await saleService.requestRefund({
+        saleId: selectedReceipt,
+        targetItemId: targetItem || undefined,
+        amount: Number(refundAmount),
+        reason,
+        refundType
+      }, '00000000-0000-0000-0000-000000000000', currentUser.id)
+      setCreatedPendingRequest(true)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (loadingSales || loadingRefunds) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -84,18 +116,18 @@ export function RefundsPage() {
             <div className="grid max-h-[420px] gap-2 overflow-y-auto pr-1">
               {filteredSales.map((sale) => (
                 <button
-                  key={sale.receipt}
+                  key={sale.sale_id}
                   type="button"
-                  onClick={() => selectSale(sale.receipt)}
+                  onClick={() => selectSale(sale.sale_id)}
                   className={`rounded-md border p-3 text-left text-sm transition-colors ${
-                    selectedReceipt === sale.receipt ? 'border-primary bg-primary/10' : 'bg-background hover:bg-surface-alt'
+                    selectedReceipt === sale.sale_id ? 'border-primary bg-primary/10' : 'bg-background hover:bg-surface-alt'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold">{sale.receipt}</span>
+                    <span className="font-semibold">{sale.sale_id.split('-')[0]}...</span>
                     <Badge variant={sale.status === 'Paid' ? 'default' : 'outline'}>{sale.status}</Badge>
                   </div>
-                  <p className="mt-1 text-secondary-foreground">{sale.amount}</p>
+                  <p className="mt-1 text-secondary-foreground">{formatMoney(sale.total_amount)}</p>
                 </button>
               ))}
             </div>
@@ -103,36 +135,40 @@ export function RefundsPage() {
         </Card>
 
         <div className="grid gap-4">
-          <Card>
-            <CardHeader className="gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <CardTitle>{selectedSale.receipt}</CardTitle>
-                <CardDescription>{selectedSale.date}</CardDescription>
-              </div>
-              <Badge variant="outline">{selectedSale.method}</Badge>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="flex flex-wrap gap-2">
-                {selectedSale.clients.map((client) => (
-                  <Badge key={client} variant="outline">{client}</Badge>
-                ))}
-              </div>
-              <div className="grid gap-2">
-                {selectedSale.items.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setTargetItem(item)}
-                    className={`rounded-md border p-3 text-left text-sm transition-colors ${
-                      targetItem === item ? 'border-primary bg-primary/10' : 'bg-background hover:bg-surface-alt'
-                    }`}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {selectedSale ? (
+            <Card>
+              <CardHeader className="gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>{selectedSale.sale_id}</CardTitle>
+                  <CardDescription>{new Date(selectedSale.created_at).toLocaleDateString()}</CardDescription>
+                </div>
+                <Badge variant="outline">Total: {formatMoney(selectedSale.total_amount)}</Badge>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid gap-2">
+                  {selectedSale.sale_items_projection?.map((item: any) => (
+                    <button
+                      key={item.sale_item_id}
+                      type="button"
+                      onClick={() => setTargetItem(item.sale_item_id)}
+                      className={`rounded-md border p-3 text-left text-sm transition-colors ${
+                        targetItem === item.sale_item_id ? 'border-primary bg-primary/10' : 'bg-background hover:bg-surface-alt'
+                      }`}
+                    >
+                      Item: {item.sale_item_id} - {formatMoney(item.amount)}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select a sale</CardTitle>
+                <CardDescription>Search and select a sale from the left panel.</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -168,9 +204,9 @@ export function RefundsPage() {
                   onChange={(event) => setTargetItem(event.target.value)}
                   className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 disabled:opacity-60"
                 >
-                  {selectedSale.items.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
+                  {selectedSale?.sale_items_projection?.map((item: any) => (
+                    <option key={item.sale_item_id} value={item.sale_item_id}>
+                      {item.sale_item_id}
                     </option>
                   ))}
                 </select>
@@ -200,9 +236,9 @@ export function RefundsPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Button type="button" disabled={!reason.trim()} onClick={createRefundRequest}>
+                <Button type="button" disabled={!reason.trim() || isSubmitting} onClick={createRefundRequest}>
                   <RotateCcw className="size-4" aria-hidden="true" />
-                  Submit Pending Request
+                  {isSubmitting ? 'Submitting...' : 'Submit Pending Request'}
                 </Button>
                 {createdPendingRequest ? (
                   <Badge variant="orange" className="ml-3">Pending</Badge>
@@ -219,16 +255,16 @@ export function RefundsPage() {
             activeTab={activeTab}
             onChange={setActiveTab}
             tabs={[
-              { id: 'Pending', label: 'Pending', count: refundRequests.filter((item) => item.status === 'Pending').length },
-              { id: 'Approved', label: 'Approved', count: refundRequests.filter((item) => item.status === 'Approved').length },
-              { id: 'Rejected', label: 'Rejected', count: refundRequests.filter((item) => item.status === 'Rejected').length },
+              { id: 'Pending', label: 'Pending', count: (safeRefunds as any[]).filter((item: any) => item.status === 'Pending').length },
+              { id: 'Approved', label: 'Approved', count: (safeRefunds as any[]).filter((item: any) => item.status === 'Approved').length },
+              { id: 'Rejected', label: 'Rejected', count: (safeRefunds as any[]).filter((item: any) => item.status === 'Rejected').length },
             ]}
           />
           <div>
             <label className="mb-2 block text-sm font-medium" htmlFor="refund-search">
               Search requests
             </label>
-            <Input id="refund-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Refund, receipt, service" />
+            <Input id="refund-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Refund ID" />
           </div>
         </div>
 
@@ -243,26 +279,24 @@ export function RefundsPage() {
                     <tr>
                       <th className="px-4 py-3 font-medium">Refund</th>
                       <th className="px-4 py-3 font-medium">Receipt</th>
-                      <th className="px-4 py-3 font-medium">Service</th>
                       <th className="px-4 py-3 font-medium">Amount</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRefunds.map((refund) => (
-                      <tr key={refund.id} className="border-t">
-                        <td className="px-4 py-3 font-medium">{refund.id}</td>
-                        <td className="px-4 py-3 text-secondary-foreground">{refund.receipt}</td>
-                        <td className="px-4 py-3">{refund.service}</td>
-                        <td className="px-4 py-3">{refund.amount}</td>
+                    {filteredRefunds.map((refund: any) => (
+                      <tr key={refund.refund_id} className="border-t">
+                        <td className="px-4 py-3 font-medium">{refund.refund_id.split('-')[0]}</td>
+                        <td className="px-4 py-3 text-secondary-foreground">{refund.sale_id.split('-')[0]}</td>
+                        <td className="px-4 py-3">{formatMoney(refund.amount)}</td>
                         <td className="px-4 py-3">
                           <Badge variant={refund.status === 'Pending' ? 'orange' : refund.status === 'Approved' ? 'default' : 'outline'}>
                             {refund.status}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <Button type="button" variant="outline" size="sm" onClick={() => setSelectedRefundId(refund.id)}>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setSelectedRefundId(refund.refund_id)}>
                             <Eye className="size-4" aria-hidden="true" />
                             View
                           </Button>
@@ -279,23 +313,20 @@ export function RefundsPage() {
 
       <Modal
         open={Boolean(selectedRefund)}
-        title={selectedRefund ? selectedRefund.id : 'Refund detail'}
+        title={selectedRefund ? selectedRefund.refund_id : 'Refund detail'}
         description="Pending cashier request"
         onClose={() => setSelectedRefundId(null)}
       >
         {selectedRefund ? (
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailTile label="Receipt" value={selectedRefund.receipt} />
+              <DetailTile label="Receipt" value={selectedRefund.sale_id} />
               <DetailTile label="Status" value={selectedRefund.status} />
-              <DetailTile label="Client" value={selectedRefund.client} />
-              <DetailTile label="Service" value={selectedRefund.service} />
-              <DetailTile label="Amount" value={selectedRefund.amount} />
-              <DetailTile label="Requested by" value={selectedRefund.requestedBy} />
+              <DetailTile label="Amount" value={formatMoney(selectedRefund.amount)} />
             </div>
             <div className="rounded-md border bg-background p-4">
-              <p className="text-sm font-medium">Reason</p>
-              <p className="mt-2 text-sm leading-6 text-secondary-foreground">{selectedRefund.reason}</p>
+              <p className="text-sm font-medium">Type</p>
+              <p className="mt-2 text-sm leading-6 text-secondary-foreground">{selectedRefund.type}</p>
             </div>
           </div>
         ) : null}

@@ -4,6 +4,8 @@ import type { AppRouteId } from '@/app/navigation'
 import type { AuthenticatedUser } from '@/auth/types'
 import { SystemRole } from '@/domain/enums'
 import type { CashierSaleDraft } from '@/types/cashier'
+import { setApiAuthToken } from '@/api/apiClient'
+import { setSupabaseAuthToken } from '@/api/supabaseClient'
 
 export type AppTheme = 'dark' | 'light'
 export type DashboardWidgetId =
@@ -36,6 +38,7 @@ type UiState = {
   isAuthenticated: boolean
   currentUser: AuthenticatedUser | null
   currentRole: SystemRole
+  accessToken: string | null
   activeRoute: AppRouteId
   activeNavigationItem: AppRouteId
   activeSaleDraft: CashierSaleDraft
@@ -44,8 +47,7 @@ type UiState = {
   dashboardWidgets: DashboardWidgetId[]
   hiddenDashboardWidgets: DashboardWidgetId[]
   setTheme: (theme: AppTheme) => void
-  setAuthenticated: (isAuthenticated: boolean) => void
-  setCurrentUser: (user: AuthenticatedUser | null) => void
+  setSession: (user: AuthenticatedUser, role: SystemRole, token: string) => void
   setCurrentRole: (role: SystemRole) => void
   setActiveRoute: (route: AppRouteId) => void
   setActiveNavigationItem: (item: AppRouteId) => void
@@ -71,14 +73,7 @@ function createCashierSaleDraft(): CashierSaleDraft {
       {
         id: 'client-1',
         label: 'Client 1',
-        items: [
-          {
-            id: 'item-1',
-            serviceId: 'svc-lashes',
-            workerId: 'worker-cynthia',
-            price: 3000,
-          },
-        ],
+        items: [],
       },
     ],
     createdAt: timestamp,
@@ -100,31 +95,25 @@ export const useUiStore = create<UiState>()(
       isAuthenticated: false,
       currentUser: null,
       currentRole: SystemRole.Cashier,
+      accessToken: null,
       activeRoute: 'dashboard',
       activeNavigationItem: 'dashboard',
       activeSaleDraft: createCashierSaleDraft(),
       cashierDrafts: [],
-      notifications: [
-        {
-          id: 'sync-ready',
-          title: 'Sync queue clear',
-          body: 'All mock events are marked synced.',
-          time: 'Now',
-          tone: 'success',
-        },
-        {
-          id: 'refund-review',
-          title: 'Refund review',
-          body: 'Two pending requests need manager approval.',
-          time: '12 min',
-          tone: 'warning',
-        },
-      ],
+      notifications: [],
       dashboardWidgets: defaultDashboardWidgets,
       hiddenDashboardWidgets: [],
       setTheme: (theme) => set({ theme }),
-      setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
-      setCurrentUser: (currentUser) => set({ currentUser }),
+      setSession: (user, role, token) => {
+        setApiAuthToken(token)
+        setSupabaseAuthToken(token)
+        set({
+          isAuthenticated: true,
+          currentUser: user,
+          currentRole: role,
+          accessToken: token,
+        })
+      },
       setCurrentRole: (currentRole) => set({ currentRole }),
       setActiveRoute: (activeRoute) => set({ activeRoute, activeNavigationItem: activeRoute }),
       setActiveNavigationItem: (activeNavigationItem) =>
@@ -153,13 +142,17 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           cashierDrafts: state.cashierDrafts.filter((draft) => draft.id !== draftId),
         })),
-      resetSession: () =>
+      resetSession: () => {
+        setApiAuthToken(null)
+        setSupabaseAuthToken(null)
         set({
           isAuthenticated: false,
           currentUser: null,
+          accessToken: null,
           activeRoute: 'dashboard',
           activeNavigationItem: 'dashboard',
-        }),
+        })
+      },
       dismissNotification: (id) =>
         set((state) => ({
           notifications: state.notifications.filter((notification) => notification.id !== id),
@@ -194,7 +187,10 @@ export const useUiStore = create<UiState>()(
       name: 'mwangiz-pos-ui',
       partialize: (state) => ({
         theme: state.theme,
+        isAuthenticated: state.isAuthenticated,
+        currentUser: state.currentUser,
         currentRole: state.currentRole,
+        accessToken: state.accessToken,
         activeRoute: state.activeRoute,
         activeNavigationItem: state.activeNavigationItem,
         activeSaleDraft: state.activeSaleDraft,
@@ -202,6 +198,12 @@ export const useUiStore = create<UiState>()(
         dashboardWidgets: state.dashboardWidgets,
         hiddenDashboardWidgets: state.hiddenDashboardWidgets,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken) {
+          setApiAuthToken(state.accessToken)
+          setSupabaseAuthToken(state.accessToken)
+        }
+      },
     },
   ),
 )

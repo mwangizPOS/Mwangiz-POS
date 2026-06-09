@@ -23,8 +23,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { cashierServiceCatalog, cashierWorkers } from '@/pages/mockData'
 import { useUiStore } from '@/store/uiStore'
+import { saleService } from '@/services/frontend/saleService'
+import { useReferenceData } from '@/hooks/useReferenceData'
 import { cn } from '@/utils/cn'
 import {
   calculateClientTotals,
@@ -49,6 +50,7 @@ export function CheckoutPage() {
   const saleDraft = useUiStore((state) => state.activeSaleDraft)
   const setActiveRoute = useUiStore((state) => state.setActiveRoute)
   const startNewCashierSale = useUiStore((state) => state.startNewCashierSale)
+  const currentUser = useUiStore((state) => state.currentUser)
   const [paymentMethod, setPaymentMethod] = useState<CashierPaymentMethod>('Cash')
   const [offlineMode, setOfflineMode] = useState(false)
   const [mpesaPhone, setMpesaPhone] = useState('254712345678')
@@ -59,6 +61,9 @@ export function CheckoutPage() {
     { id: 'split-1', method: 'Cash', amount: 0, reference: '' },
   ])
   const [receiptVisible, setReceiptVisible] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { services, workers } = useReferenceData()
+  
   const total = useMemo(() => calculateSaleTotal(saleDraft.clients), [saleDraft.clients])
   const itemCount = saleDraft.clients.reduce((sum, client) => sum + client.items.length, 0)
   const clientTotals = useMemo(() => calculateClientTotals(saleDraft.clients), [saleDraft.clients])
@@ -127,6 +132,8 @@ export function CheckoutPage() {
         bankReference={bankReference}
         executionStatusLabel={getExecutionStatusLabel(paymentExecutionStatus)}
         onNewSale={startFreshSale}
+        services={services}
+        workers={workers}
       />
     )
   }
@@ -156,7 +163,7 @@ export function CheckoutPage() {
       />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <SaleReviewCard saleDraft={saleDraft} clientTotals={clientTotals} total={total} />
+        <SaleReviewCard saleDraft={saleDraft} clientTotals={clientTotals} total={total} services={services} workers={workers} />
         <PaymentCard
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
@@ -178,8 +185,22 @@ export function CheckoutPage() {
           addSplitPayment={addSplitPayment}
           updateSplitPayment={updateSplitPayment}
           removeSplitPayment={removeSplitPayment}
-          onComplete={() => setReceiptVisible(true)}
-          canComplete={paymentValidation.canComplete}
+          onComplete={async () => {
+            if (!currentUser) return
+            setIsSubmitting(true)
+            await saleService.submitSale({
+              draftSale: saleDraft,
+              paymentMethod,
+              splitPayments,
+              mpesaReference: manualMpesaReference,
+              bankReference,
+              offlineMode,
+              total
+            }, '00000000-0000-0000-0000-000000000000', currentUser.id)
+            setIsSubmitting(false)
+            setReceiptVisible(true)
+          }}
+          canComplete={paymentValidation.canComplete && !isSubmitting}
         />
       </section>
     </>
@@ -190,11 +211,22 @@ function SaleReviewCard({
   saleDraft,
   clientTotals,
   total,
+  services,
+  workers
 }: {
   saleDraft: CashierSaleDraft
   clientTotals: Array<{ clientId: string; label: string; total: number }>
   total: number
+  services: any[]
+  workers: any[]
 }) {
+  function getServiceName(serviceId: string) {
+    return services.find((service) => service.id === serviceId)?.name ?? 'Unknown service'
+  }
+
+  function getWorkerName(workerId: string) {
+    return workers.find((worker) => worker.id === workerId)?.full_name ?? 'Unassigned worker'
+  }
   return (
     <Card>
       <CardHeader>
@@ -537,6 +569,8 @@ function ReceiptView({
   bankReference,
   executionStatusLabel,
   onNewSale,
+  services,
+  workers
 }: {
   saleDraft: CashierSaleDraft
   paymentMethod: CashierPaymentMethod
@@ -545,6 +579,8 @@ function ReceiptView({
   bankReference: string
   executionStatusLabel: string
   onNewSale: () => void
+  services: any[]
+  workers: any[]
 }) {
   const total = calculateSaleTotal(saleDraft.clients)
 
@@ -573,7 +609,7 @@ function ReceiptView({
       />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <SaleReviewCard saleDraft={saleDraft} clientTotals={calculateClientTotals(saleDraft.clients)} total={total} />
+        <SaleReviewCard saleDraft={saleDraft} clientTotals={calculateClientTotals(saleDraft.clients)} total={total} services={services} workers={workers} />
         <Card>
           <CardHeader>
             <CardTitle>Payment Breakdown</CardTitle>
@@ -620,12 +656,4 @@ function SummaryPill({ label, value }: { label: string; value: string }) {
       <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
   )
-}
-
-function getServiceName(serviceId: string) {
-  return cashierServiceCatalog.find((service) => service.id === serviceId)?.name ?? 'Unknown service'
-}
-
-function getWorkerName(workerId: string) {
-  return cashierWorkers.find((worker) => worker.id === workerId)?.name ?? 'Unassigned worker'
 }

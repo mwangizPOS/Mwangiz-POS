@@ -1,18 +1,30 @@
 import { useState } from 'react'
-import { Edit, Plus, ToggleLeft, UsersRound } from 'lucide-react'
+import { Edit, Plus, ToggleLeft, UsersRound, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/components/app/SectionHeader'
 import { Modal } from '@/components/app/Modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { workers, services } from '@/pages/mockData'
+import { useReferenceData } from '@/hooks/useReferenceData'
 
 export function ManagerWorkersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [editingWorker, setEditingWorker] = useState<string | null>(null)
+  const [editingWorker, setEditingWorker] = useState<any | null>(null)
 
-  const activeServices = services.filter((s) => s.status === 'Active')
+  const { workers, services, isLoading } = useReferenceData()
+
+  const safeWorkers = (workers as any[]) ?? []
+  const safeServices = (services as any[]) ?? []
+  const activeServices = safeServices.filter((s) => s.active)
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -29,8 +41,13 @@ export function ManagerWorkersPage() {
       />
 
       <section className="grid gap-3 xl:grid-cols-2">
-        {workers.map((worker) => (
-          <Card key={worker.phone}>
+        {safeWorkers.length === 0 ? (
+          <div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-secondary-foreground">
+            No workers found.
+          </div>
+        ) : null}
+        {safeWorkers.map((worker) => (
+          <Card key={worker.id}>
             <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-orange/12 text-orange">
@@ -38,15 +55,17 @@ export function ManagerWorkersPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold">{worker.name}</p>
-                    <Badge variant={worker.status === 'Active' ? 'default' : 'outline'}>{worker.status}</Badge>
+                    <p className="font-semibold">{worker.full_name}</p>
+                    <Badge variant={worker.active ? 'default' : 'outline'}>{worker.active ? 'Active' : 'Disabled'}</Badge>
                   </div>
                   <p className="mt-2 text-sm text-secondary-foreground">{worker.phone}</p>
-                  <p className="mt-1 text-sm text-secondary-foreground">{worker.skills}</p>
+                  <p className="mt-1 text-sm text-secondary-foreground">
+                    {worker.skills?.length > 0 ? worker.skills.join(', ') : 'No specific skills'}
+                  </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 md:justify-end">
-                <Button type="button" variant="outline" onClick={() => setEditingWorker(worker.name)}>
+                <Button type="button" variant="outline" onClick={() => setEditingWorker(worker)}>
                   <Edit className="size-4" aria-hidden="true" />
                   Edit
                 </Button>

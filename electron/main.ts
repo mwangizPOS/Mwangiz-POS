@@ -8,6 +8,7 @@ const currentDirectory = path.dirname(currentFile)
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const { shell } = electronCommon
 const { app, BrowserWindow, ipcMain, nativeTheme } = electronMain
+import { syncEngine } from '../src/sync/syncEngine'
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -22,6 +23,7 @@ function createMainWindow() {
       preload: path.join(currentDirectory, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
 
@@ -46,6 +48,21 @@ function createMainWindow() {
 app.whenReady().then(() => {
   ipcMain.handle('app:get-version', () => app.getVersion())
   ipcMain.handle('theme:get-system', () => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'))
+
+  ipcMain.handle('sync:dispatchSubmitSale', async (_, intent, branchId, actorId) => {
+    return syncEngine.dispatchSubmitSale(intent, branchId, actorId)
+  })
+  ipcMain.handle('sync:dispatchRequestRefund', async (_, intent, branchId, actorId) => {
+    return syncEngine.dispatchRequestRefund(intent, branchId, actorId)
+  })
+  ipcMain.handle('sync:dispatchApproveRefund', async (_, intent, branchId, actorId) => {
+    return syncEngine.dispatchApproveRefund(intent, branchId, actorId)
+  })
+  ipcMain.handle('sync:dispatchRejectRefund', async (_, intent, branchId, actorId) => {
+    return syncEngine.dispatchRejectRefund(intent, branchId, actorId)
+  })
+
+  syncEngine.start()
 
   createMainWindow()
 

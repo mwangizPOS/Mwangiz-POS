@@ -1,4 +1,6 @@
 import { validateIncomingEvent } from '@/backend/events/validation'
+import { translateSubmitSaleIntent, translateRequestRefundIntent, translateApproveRefundIntent, translateRejectRefundIntent } from './intents'
+import type { SubmitSaleIntent, RequestRefundIntent, ApproveRefundIntent, RejectRefundIntent } from './intents'
 import type { AppEvent } from '@/events'
 import { withDeterministicIdempotencyKey } from './idempotency'
 import { createNetworkDetector, type NetworkChangeCallback, type NetworkDetectorOptions } from './networkDetector'
@@ -56,7 +58,7 @@ export class SyncEngine {
   }
 
   async captureEvent(input: AppEvent) {
-    const event = validateIncomingEvent(withDeterministicIdempotencyKey(input))
+    const event = validateIncomingEvent(await withDeterministicIdempotencyKey(input))
     const outboxEvent = this.outbox.appendEvent(event)
 
     if (await this.networkDetector.isOnline()) {
@@ -64,6 +66,35 @@ export class SyncEngine {
     }
 
     return outboxEvent
+  }
+
+  async dispatchSubmitSale(intent: SubmitSaleIntent, branchId: string, actorId: string) {
+    const events = translateSubmitSaleIntent(intent, actorId)
+    for (const event of events) {
+      event.branch_id = branchId
+      await this.captureEvent(event)
+    }
+  }
+
+  async dispatchRequestRefund(intent: RequestRefundIntent, branchId: string, actorId: string) {
+    const events = translateRequestRefundIntent(intent, branchId, actorId)
+    for (const event of events) {
+      await this.captureEvent(event)
+    }
+  }
+
+  async dispatchApproveRefund(intent: ApproveRefundIntent, branchId: string, actorId: string) {
+    const events = translateApproveRefundIntent(intent, branchId, actorId)
+    for (const event of events) {
+      await this.captureEvent(event)
+    }
+  }
+
+  async dispatchRejectRefund(intent: RejectRefundIntent, branchId: string, actorId: string) {
+    const events = translateRejectRefundIntent(intent, branchId, actorId)
+    for (const event of events) {
+      await this.captureEvent(event)
+    }
   }
 
   async processQueue(): Promise<QueueProcessResult> {
@@ -95,3 +126,5 @@ export class SyncEngine {
 export function createSyncEngine(options: SyncEngineOptions = {}) {
   return new SyncEngine(options)
 }
+
+export const syncEngine = createSyncEngine()

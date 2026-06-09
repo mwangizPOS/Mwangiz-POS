@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BadgeDollarSign, CheckCircle2, Search } from 'lucide-react'
+import { BadgeDollarSign, CheckCircle2, Search, Loader2 } from 'lucide-react'
 import { EmptyState } from '@/components/app/EmptyState'
 import { Modal } from '@/components/app/Modal'
 import { SectionHeader } from '@/components/app/SectionHeader'
@@ -8,29 +8,49 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { workerSettlements } from '@/pages/mockData'
+import { useWorkerEarningsProjection } from '@/hooks/useWorkerEarningsProjection'
+import { useReferenceData } from '@/hooks/useReferenceData'
+import { formatMoney } from './cashierSaleLogic'
 
 type SettlementTab = 'Pending' | 'Paid'
 
 export function PayWorkersPage() {
   const [activeTab, setActiveTab] = useState<SettlementTab>('Pending')
   const [query, setQuery] = useState('')
-  const [roleFilter, setRoleFilter] = useState('All')
-  const [selectedWorker, setSelectedWorker] = useState<(typeof workerSettlements)[number] | null>(null)
+  const [selectedWorker, setSelectedWorker] = useState<any | null>(null)
   const [paidWorkerName, setPaidWorkerName] = useState<string | null>(null)
-  const roles = ['All', ...Array.from(new Set(workerSettlements.map((worker) => worker.role)))]
-  const filteredWorkers = useMemo(
-    () =>
-      workerSettlements.filter((worker, index) => {
-        const status = index % 2 === 0 ? 'Pending' : 'Paid'
-        const matchesTab = activeTab === status
-        const matchesRole = roleFilter === 'All' || worker.role === roleFilter
-        const matchesQuery = `${worker.name} ${worker.role}`.toLowerCase().includes(query.toLowerCase())
+  
+  const { earnings, isLoading: loadingEarnings } = useWorkerEarningsProjection()
+  const { workers, isLoading: loadingWorkers } = useReferenceData()
 
-        return matchesTab && matchesRole && matchesQuery
-      }),
-    [activeTab, query, roleFilter],
-  )
+  const safeWorkers = (workers as any[]) ?? []
+  
+  const filteredWorkers = useMemo(() => {
+    return earnings.filter((earning) => {
+      // Logic for Pending vs Paid: if unpaid_earnings > 0, it's pending. If unpaid == 0 but paid > 0, it's paid.
+      // But activeTab filter:
+      if (activeTab === 'Pending' && earning.unpaid_earnings <= 0) return false
+      if (activeTab === 'Paid' && earning.paid_earnings <= 0) return false
+
+      const workerInfo = safeWorkers.find(w => w.id === earning.worker_id)
+      const workerName = workerInfo?.full_name || 'Unknown'
+
+      const matchesQuery = workerName.toLowerCase().includes(query.toLowerCase())
+      return matchesQuery
+    })
+  }, [activeTab, query, earnings, safeWorkers])
+
+  function getWorkerName(workerId: string) {
+    return safeWorkers.find(w => w.id === workerId)?.full_name || 'Unknown Worker'
+  }
+
+  if (loadingEarnings || loadingWorkers) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -45,27 +65,11 @@ export function PayWorkersPage() {
           activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: 'Pending', label: 'Pending', count: 2 },
-            { id: 'Paid', label: 'Paid', count: 2 },
+            { id: 'Pending', label: 'Pending', count: earnings.filter(e => e.unpaid_earnings > 0).length },
+            { id: 'Paid', label: 'Paid', count: earnings.filter(e => e.paid_earnings > 0).length },
           ]}
         />
-        <div>
-          <label className="mb-2 block text-sm font-medium" htmlFor="worker-role-filter">
-            Filter by specialty
-          </label>
-          <select
-            id="worker-role-filter"
-            value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value)}
-            className="h-11 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
-          >
-            {roles.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div />
       </div>
 
       <Card>
@@ -79,7 +83,7 @@ export function PayWorkersPage() {
               id="worker-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Worker name or specialty"
+              placeholder="Worker name"
               className="pl-10"
             />
           </div>
@@ -91,21 +95,21 @@ export function PayWorkersPage() {
       ) : (
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredWorkers.map((worker) => (
-            <Card key={worker.name}>
+            <Card key={worker.worker_id}>
               <CardContent className="grid gap-4 p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex size-10 items-center justify-center rounded-md bg-primary/12 text-primary">
                     <BadgeDollarSign className="size-5" aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{worker.name}</p>
-                    <p className="truncate text-sm text-secondary-foreground">{worker.role}</p>
+                    <p className="truncate font-semibold">{getWorkerName(worker.worker_id)}</p>
+                    <p className="truncate text-sm text-secondary-foreground">Worker</p>
                   </div>
                   <Badge variant={activeTab === 'Pending' ? 'orange' : 'default'}>{activeTab}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-secondary-foreground">
                   <span>{activeTab === 'Pending' ? 'Outstanding balance' : 'Paid history'}</span>
-                  <span className="text-right">{worker.lastPaid}</span>
+                  <span className="text-right">{new Date(worker.last_updated).toLocaleDateString()}</span>
                 </div>
                 <Button type="button" variant="outline" onClick={() => setSelectedWorker(worker)}>
                   Open worker
@@ -118,22 +122,22 @@ export function PayWorkersPage() {
 
       <Modal
         open={Boolean(selectedWorker)}
-        title={selectedWorker?.name ?? 'Worker'}
+        title={selectedWorker ? getWorkerName(selectedWorker.worker_id) : 'Worker'}
         description="Settlement detail"
         onClose={() => setSelectedWorker(null)}
       >
         {selectedWorker ? (
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <DetailTile label="Outstanding" value={selectedWorker.outstanding} />
-              <DetailTile label="Total earned" value={selectedWorker.earned} />
-              <DetailTile label="Last payment" value={selectedWorker.lastPaid} />
+              <DetailTile label="Outstanding" value={formatMoney(selectedWorker.unpaid_earnings)} />
+              <DetailTile label="Total earned" value={formatMoney(selectedWorker.total_earnings)} />
+              <DetailTile label="Last update" value={new Date(selectedWorker.last_updated).toLocaleDateString()} />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <HistoryCard title="Pending history" entries={[`Current balance ${selectedWorker.outstanding}`, 'Awaiting cashier settlement']} />
-              <HistoryCard title="Paid history" entries={selectedWorker.history} />
+              <HistoryCard title="Pending history" entries={[`Current balance ${formatMoney(selectedWorker.unpaid_earnings)}`]} />
+              <HistoryCard title="Paid history" entries={[`Total paid ${formatMoney(selectedWorker.paid_earnings)}`]} />
             </div>
-            <Button type="button" variant="orange" onClick={() => setPaidWorkerName(selectedWorker.name)}>
+            <Button type="button" variant="orange" onClick={() => setPaidWorkerName(getWorkerName(selectedWorker.worker_id))}>
               <CheckCircle2 className="size-4" aria-hidden="true" />
               Mark Paid
             </Button>

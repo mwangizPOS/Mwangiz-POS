@@ -1,9 +1,16 @@
-import DatabaseConstructor, { type Database as BetterSqliteDatabase } from 'better-sqlite3'
 import path from 'node:path'
 import { validateIncomingEvent } from '@/backend/events/validation'
 import type { AppEvent } from '@/events'
 import { SyncStatus, type OutboxEvent } from '../types'
 import { withDeterministicIdempotencyKey } from '../idempotency'
+
+let DatabaseConstructor: any = null
+try {
+  // Use require so that we can catch native module mismatch errors gracefully
+  DatabaseConstructor = require('better-sqlite3')
+} catch (error) {
+  console.warn('Failed to load better-sqlite3 (native module mismatch). Falling back to in-memory store.', error)
+}
 
 export interface OutboxStoreOptions {
   databasePath?: string
@@ -37,23 +44,60 @@ interface OutboxRow {
 const DEFAULT_LIMIT = 100
 
 export class OutboxStore {
-  private readonly database: BetterSqliteDatabase
+  private readonly database: any
+  private inMemoryStore: OutboxRow[] = []
+  private sequenceCounter = 0
 
   constructor(options: OutboxStoreOptions = {}) {
-    const databasePath =
-      options.databasePath ??
-      process.env.MWANGI_POS_SYNC_DB_PATH ??
-      path.join(process.cwd(), 'mwangi-pos-offline.sqlite')
+    if (DatabaseConstructor) {
+      const databasePath =
+        options.databasePath ??
+        process.env.MWANGI_POS_SYNC_DB_PATH ??
+        path.join(process.cwd(), 'mwangi-pos-offline.sqlite')
 
-    this.database = new DatabaseConstructor(databasePath)
-    this.database.pragma('journal_mode = WAL')
-    this.database.pragma('foreign_keys = ON')
-    this.ensureSchema()
+      this.database = new DatabaseConstructor(databasePath)
+      this.database.pragma('journal_mode = WAL')
+      this.database.pragma('foreign_keys = ON')
+      this.ensureSchema()
+    } else {
+      console.warn('Initializing in-memory outbox store.')
+    }
   }
 
   appendEvent(input: AppEvent): OutboxEvent {
     const event = validateIncomingEvent(withDeterministicIdempotencyKey(input))
     const now = new Date().toISOString()
+
+    if (!this.database) {
+      const existing = this.inMemoryStore.find((r) => r.event_id === event.event_id)
+      if (existing) {
+        existing.event_payload = JSON.stringify(event)
+        existing.idempotency_key = event.idempotency_key
+        existing.updated_at = now
+      } else {
+        this.sequenceCounter++
+        this.inMemoryStore.push({
+          local_id: event.event_id,
+          event_id: event.event_id,
+          aggregate_id: event.aggregate_id,
+          aggregate_type: event.aggregate_type,
+          event_type: event.event_type,
+          branch_id: event.branch_id,
+          idempotency_key: event.idempotency_key,
+          event_payload: JSON.stringify(event),
+          status: SyncStatus.Pending,
+          retry_count: 0,
+          next_retry_at: null,
+          last_attempt_at: null,
+          last_error: null,
+          created_at: now,
+          updated_at: now,
+          synced_at: null,
+          sequence: this.sequenceCounter,
+        })
+      }
+      return this.getEventById(event.event_id) as OutboxEvent
+    }
 
     this.database
       .prepare(
@@ -104,23 +148,33 @@ export class OutboxStore {
   getPendingEvents(options: GetPendingEventsOptions = {}): OutboxEvent[] {
     const now = options.now ?? new Date().toISOString()
     const limit = options.limit ?? DEFAULT_LIMIT
-    const dueRows = this.database
-      .prepare(
-        `
-          select *
-          from sync_outbox
-          where status in ($pending, $failed)
-            and (next_retry_at is null or next_retry_at <= $now)
-          order by sequence asc
-          limit $limit
-        `,
-      )
-      .all({
-        pending: SyncStatus.Pending,
-        failed: SyncStatus.Failed,
-        now,
-        limit,
-      }) as OutboxRow[]
+    
+    let dueRows: OutboxRow[] = []
+    
+    if (!this.database) {
+      dueRows = this.inMemoryStore
+        .filter(r => (r.status === SyncStatus.Pending || r.status === SyncStatus.Failed) && (!r.next_retry_at || r.next_retry_at <= now))
+        .sort((a, b) => a.sequence - b.sequence)
+        .slice(0, limit)
+    } else {
+      dueRows = this.database
+        .prepare(
+          `
+            select *
+            from sync_outbox
+            where status in ($pending, $failed)
+              and (next_retry_at is null or next_retry_at <= $now)
+            order by sequence asc
+            limit $limit
+          `,
+        )
+        .all({
+          pending: SyncStatus.Pending,
+          failed: SyncStatus.Failed,
+          now,
+          limit,
+        }) as OutboxRow[]
+    }
 
     return dueRows
       .filter((row) => !this.hasBlockingOlderEvent(row, now))
@@ -129,6 +183,16 @@ export class OutboxStore {
 
   markEventSyncing(eventId: string): void {
     const now = new Date().toISOString()
+    
+    if (!this.database) {
+      const row = this.inMemoryStore.find(r => r.event_id === eventId && r.status !== SyncStatus.Synced)
+      if (row) {
+        row.status = SyncStatus.Syncing
+        row.last_attempt_at = now
+        row.updated_at = now
+      }
+      return
+    }
 
     this.database
       .prepare(
@@ -151,6 +215,18 @@ export class OutboxStore {
 
   markEventSynced(eventId: string): void {
     const now = new Date().toISOString()
+    
+    if (!this.database) {
+      const row = this.inMemoryStore.find(r => r.event_id === eventId)
+      if (row) {
+        row.status = SyncStatus.Synced
+        row.synced_at = now
+        row.updated_at = now
+        row.next_retry_at = null
+        row.last_error = null
+      }
+      return
+    }
 
     this.database
       .prepare(
@@ -173,6 +249,18 @@ export class OutboxStore {
 
   markEventFailed(eventId: string, nextRetryAt: string, errorMessage: string): void {
     const now = new Date().toISOString()
+    
+    if (!this.database) {
+      const row = this.inMemoryStore.find(r => r.event_id === eventId && r.status !== SyncStatus.Synced)
+      if (row) {
+        row.status = SyncStatus.Failed
+        row.retry_count += 1
+        row.next_retry_at = nextRetryAt
+        row.last_error = errorMessage
+        row.updated_at = now
+      }
+      return
+    }
 
     this.database
       .prepare(
@@ -199,6 +287,16 @@ export class OutboxStore {
 
   resetSyncingEvents(): void {
     const now = new Date().toISOString()
+    
+    if (!this.database) {
+      this.inMemoryStore.forEach(row => {
+        if (row.status === SyncStatus.Syncing) {
+          row.status = SyncStatus.Pending
+          row.updated_at = now
+        }
+      })
+      return
+    }
 
     this.database
       .prepare(
@@ -217,6 +315,12 @@ export class OutboxStore {
   }
 
   clearSyncedEvents(): number {
+    if (!this.database) {
+      const initialLength = this.inMemoryStore.length
+      this.inMemoryStore = this.inMemoryStore.filter(r => r.status !== SyncStatus.Synced)
+      return initialLength - this.inMemoryStore.length
+    }
+
     const result = this.database
       .prepare(
         `
@@ -232,10 +336,17 @@ export class OutboxStore {
   }
 
   close(): void {
-    this.database.close()
+    if (this.database) {
+      this.database.close()
+    }
   }
 
   private getEventById(eventId: string): OutboxEvent | undefined {
+    if (!this.database) {
+      const row = this.inMemoryStore.find(r => r.event_id === eventId)
+      return row ? this.toOutboxEvent(row) : undefined
+    }
+
     const row = this.database
       .prepare(
         `
@@ -250,6 +361,15 @@ export class OutboxStore {
   }
 
   private hasBlockingOlderEvent(row: OutboxRow, now: string): boolean {
+    if (!this.database) {
+      return this.inMemoryStore.some(r => 
+        r.aggregate_id === row.aggregate_id && 
+        r.sequence < row.sequence && 
+        r.status !== SyncStatus.Synced &&
+        (r.status === SyncStatus.Syncing || r.next_retry_at === null || r.next_retry_at > now)
+      )
+    }
+
     const blocking = this.database
       .prepare(
         `
