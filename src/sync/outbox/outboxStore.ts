@@ -1,8 +1,8 @@
 import path from 'node:path'
-import { validateIncomingEvent } from '@/backend/events/validation'
-import type { AppEvent } from '@/events'
-import { SyncStatus, type OutboxEvent } from '../types'
-import { withDeterministicIdempotencyKey } from '../idempotency'
+import { validateIncomingEvent } from '../../backend/events/validation.js'
+import type { AppEvent } from '../../events/index.js'
+import { SyncStatus, type OutboxEvent } from '../types.js'
+import { withDeterministicIdempotencyKey } from '../idempotency.js'
 
 let DatabaseConstructor: any = null
 try {

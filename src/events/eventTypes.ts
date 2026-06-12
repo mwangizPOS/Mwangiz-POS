@@ -1,5 +1,5 @@
-import { LegacyEventTypeNameRegistry } from '@/contracts/mapping'
-import { DomainEntityRegistry } from '@/contracts/registry'
+import { LegacyEventTypeNameRegistry } from '../contracts/mapping.js'
+import { DomainEntityRegistry } from '../contracts/registry.js'
 
 export const EventAggregateType = {
   Sale: DomainEntityRegistry.Sale,

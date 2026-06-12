@@ -1,5 +1,5 @@
-import type { EventAggregateType, EventType } from './eventTypes'
-import type { DateTimeString, EntityId } from '@/types/primitives'
+import type { EventAggregateType, EventType } from './eventTypes.js'
+import type { DateTimeString, EntityId } from '../types/primitives.js'
 
 export interface EventEnvelope<
   TEventType extends EventType = EventType,

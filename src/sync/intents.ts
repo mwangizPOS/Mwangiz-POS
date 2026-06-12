@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
-import { EventAggregateType, EventType } from '@/events/eventTypes'
-import type { AppEvent } from '@/events/events'
-import { PaymentMethod, PaymentStatus, RefundStatus, SaleItemStatus, SaleStatus, RefundTarget } from '@/domain/enums'
-import type { CashierPaymentMethod, CashierSaleDraft, CashierSplitPaymentDraft } from '@/pages/cashier/cashierSaleLogic'
+import { EventAggregateType, EventType } from '../events/eventTypes.js'
+import type { AppEvent } from '../events/events.js'
+import { PaymentMethod, PaymentStatus, RefundStatus, SaleItemStatus, SaleStatus, RefundTarget } from '../domain/enums.js'
+import type { CashierPaymentMethod, CashierSaleDraft, CashierSplitPaymentDraft, CashierSaleClientDraft, CashierSaleItemDraft } from '../types/cashier.js'
 
 export interface SubmitSaleIntent {
   draftSale: CashierSaleDraft
@@ -57,7 +57,7 @@ export function translateSubmitSaleIntent(intent: SubmitSaleIntent, actorId: str
       saleNumber: intent.draftSale.saleNumber,
       branchId,
       status: SaleStatus.Completed,
-      clients: intent.draftSale.clients.map((c) => ({
+      clients: intent.draftSale.clients.map((c: CashierSaleClientDraft) => ({
         saleClientId: c.id,
         label: c.label,
       })),
@@ -66,8 +66,8 @@ export function translateSubmitSaleIntent(intent: SubmitSaleIntent, actorId: str
   })
 
   // 2. SaleItemAdded for each item
-  intent.draftSale.clients.forEach((client) => {
-    client.items.forEach((item) => {
+  intent.draftSale.clients.forEach((client: CashierSaleClientDraft) => {
+    client.items.forEach((item: CashierSaleItemDraft) => {
       events.push({
         event_id: uuidv4(),
         event_type: EventType.SaleItemAdded,

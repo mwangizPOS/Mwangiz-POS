@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { workerSchema } from './domainSchemas'
+import { workerSchema } from './domainSchemas.js'
 import {
   entityIdSchema,
   phoneSchema,
   shortTextSchema,
   skillsSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const createWorkerRequestSchema = z.object({
   branchId: entityIdSchema,

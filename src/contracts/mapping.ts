@@ -1,4 +1,4 @@
-import { EventTypeRegistry } from './registry'
+import { EventTypeRegistry } from './registry.js'
 
 export const LegacyEventTypeNameRegistry = {
   SaleCreated: 'SaleCreated',

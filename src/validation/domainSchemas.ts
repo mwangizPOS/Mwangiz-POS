@@ -13,7 +13,7 @@ import {
   settlementStatusValues,
   syncStatusValues,
   systemRoleValues,
-} from '@/domain/enums'
+} from '../domain/enums.js'
 import {
   dateTimeStringSchema,
   entityIdSchema,
@@ -24,7 +24,7 @@ import {
   retryCountSchema,
   shortTextSchema,
   skillsSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const systemRoleSchema = z.enum(systemRoleValues)
 

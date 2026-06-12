@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { branchSchema } from './domainSchemas'
-import { entityIdSchema, shortTextSchema } from './sharedSchemas'
+import { branchSchema } from './domainSchemas.js'
+import { entityIdSchema, shortTextSchema } from './sharedSchemas.js'
 
 export const createBranchRequestSchema = z.object({
   name: shortTextSchema,

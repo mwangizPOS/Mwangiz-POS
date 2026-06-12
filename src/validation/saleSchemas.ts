@@ -6,12 +6,12 @@ import {
   saleSchema,
   saleStatusSchema,
   splitPaymentSchema,
-} from './domainSchemas'
+} from './domainSchemas.js'
 import {
   saleCompletedEventSchema,
   saleCreatedEventSchema,
   saleItemAddedEventSchema,
-} from './eventSchemas'
+} from './eventSchemas.js'
 import {
   entityIdSchema,
   idempotencyKeySchema,
@@ -19,7 +19,7 @@ import {
   positiveMoneyAmountSchema,
   percentageSchema,
   shortTextSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const createSaleClientInputSchema = z.object({
   clientReference: shortTextSchema,

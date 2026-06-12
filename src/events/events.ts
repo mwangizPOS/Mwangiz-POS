@@ -1,5 +1,5 @@
-import { EventAggregateType, EventType } from './eventTypes'
-import type { DomainEventEnvelope, IntegrationEventEnvelope } from './envelope'
+import { EventAggregateType, EventType } from './eventTypes.js'
+import type { DomainEventEnvelope, IntegrationEventEnvelope } from './envelope.js'
 import type {
   AuditLogCreatedPayload,
   PaymentCompletedPayload,
@@ -18,7 +18,7 @@ import type {
   WorkerPaidPayload,
   WorkerSettlementCalculatedPayload,
   WorkerSettlementMarkedPaidPayload,
-} from './payloads'
+} from './payloads.js'
 
 export type SaleCreatedEvent = DomainEventEnvelope<
   typeof EventType.SaleCreated,

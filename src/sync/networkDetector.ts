@@ -1,4 +1,4 @@
-import { NetworkQuality, type NetworkState, type NetworkSubscription } from './types'
+import { NetworkQuality, type NetworkState, type NetworkSubscription } from './types.js'
 
 export type NetworkChangeCallback = (state: NetworkState) => void
 
@@ -40,7 +40,7 @@ class NetworkDetector {
   }
 
   async check(): Promise<NetworkState> {
-    if (hasNavigator() && globalThis.navigator.onLine === false) {
+    if (hasNavigator() && (globalThis.navigator as any).onLine === false) {
       return this.updateState(NetworkQuality.Offline, undefined, 'navigator-offline')
     }
 
@@ -118,10 +118,10 @@ class NetworkDetector {
       return
     }
 
-    globalThis.addEventListener('online', () => {
+    (globalThis as any).addEventListener('online', () => {
       void this.check()
     })
-    globalThis.addEventListener('offline', () => {
+    (globalThis as any).addEventListener('offline', () => {
       void this.updateState(NetworkQuality.Offline, undefined, 'browser-offline')
     })
     this.browserListenersAttached = true
@@ -179,5 +179,5 @@ function hasNavigator(): boolean {
 }
 
 function hasWindow(): boolean {
-  return typeof globalThis.addEventListener === 'function'
+  return typeof (globalThis as any).addEventListener === 'function'
 }

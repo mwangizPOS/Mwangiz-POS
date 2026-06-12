@@ -4,7 +4,7 @@ import {
   EventType,
   eventAggregateTypeValues,
   eventTypeValues,
-} from '@/events'
+} from '../events/index.js'
 import {
   auditActionSchema,
   auditEntityTypeSchema,
@@ -16,7 +16,7 @@ import {
   saleItemStatusSchema,
   saleStatusSchema,
   settlementStatusSchema,
-} from './domainSchemas'
+} from './domainSchemas.js'
 import {
   dateTimeStringSchema,
   entityIdSchema,
@@ -28,7 +28,7 @@ import {
   positiveMoneyAmountSchema,
   shortTextSchema,
   uuidSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const eventTypeSchema = z.enum(eventTypeValues)
 

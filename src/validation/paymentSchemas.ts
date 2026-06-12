@@ -1,17 +1,17 @@
 import { z } from 'zod'
-import { paymentMethodSchema, paymentStatusSchema } from './domainSchemas'
+import { paymentMethodSchema, paymentStatusSchema } from './domainSchemas.js'
 import {
   paymentCompletedEventSchema,
   paymentInitiatedEventSchema,
   splitPaymentRecordedEventSchema,
-} from './eventSchemas'
+} from './eventSchemas.js'
 import {
   entityIdSchema,
   idempotencyKeySchema,
   moneyAmountSchema,
   positiveMoneyAmountSchema,
   shortTextSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const initiatePaymentRequestSchema = z.object({
   saleId: entityIdSchema,

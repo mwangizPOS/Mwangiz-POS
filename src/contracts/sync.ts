@@ -1,5 +1,5 @@
-import type { AppEvent, EventEnvelope } from '@/events'
-import type { DateTimeString, EntityId, JsonObject } from '@/types/primitives'
+import type { AppEvent, EventEnvelope } from '../events/index.js'
+import type { DateTimeString, EntityId, JsonObject } from '../types/primitives.js'
 
 export const SyncEventStatus = {
   Pending: 'Pending',

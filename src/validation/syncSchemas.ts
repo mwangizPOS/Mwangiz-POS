@@ -1,13 +1,13 @@
 import { z } from 'zod'
-import { syncEventStatusValues } from '@/contracts/sync'
-import { appEventSchema, eventEnvelopeBaseSchema } from './eventSchemas'
+import { syncEventStatusValues } from '../contracts/sync.js'
+import { appEventSchema, eventEnvelopeBaseSchema } from './eventSchemas.js'
 import {
   dateTimeStringSchema,
   entityIdSchema,
   metadataSchema,
   retryCountSchema,
   shortTextSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const syncEventStatusSchema = z.enum(syncEventStatusValues)
 

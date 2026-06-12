@@ -1,4 +1,4 @@
-import { defineUniqueRegistryValues } from './validateRegistry'
+import { defineUniqueRegistryValues } from './validateRegistry.js'
 
 export const EventTypeRegistry = {
   SALE_CREATED: 'SALE_CREATED',

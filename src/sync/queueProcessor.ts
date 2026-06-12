@@ -1,8 +1,8 @@
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
-import type { OutboxEvent, QueueProcessResult, QueueProcessorOptions, SyncBatchResult, SyncTransport } from './types'
-import { isOnline } from './networkDetector'
-import { createOutboxStore, type OutboxStore } from './outbox/outboxStore'
+import type { OutboxEvent, QueueProcessResult, QueueProcessorOptions, SyncBatchResult, SyncTransport } from './types.js'
+import { isOnline } from './networkDetector.js'
+import { createOutboxStore, type OutboxStore } from './outbox/outboxStore.js'
 
 interface BackendSyncRetryResponse {
   data?: {

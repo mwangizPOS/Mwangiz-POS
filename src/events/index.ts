@@ -1,4 +1,4 @@
-export type * from './envelope'
-export type * from './events'
-export * from './eventTypes'
-export type * from './payloads'
+export type * from './envelope.js'
+export type * from './events.js'
+export * from './eventTypes.js'
+export type * from './payloads.js'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BusinessInvariantCode } from '@/contracts/invariants'
+import { BusinessInvariantCode } from '../contracts/invariants.js'
 
 export const businessInvariantCodeSchema = z.enum([
   BusinessInvariantCode.SaleTotalEqualsSaleItems,

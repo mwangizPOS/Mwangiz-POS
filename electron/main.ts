@@ -8,7 +8,7 @@ const currentDirectory = path.dirname(currentFile)
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const { shell } = electronCommon
 const { app, BrowserWindow, ipcMain, nativeTheme } = electronMain
-import { syncEngine } from '../src/sync/syncEngine'
+import { syncEngine } from '../src/sync/syncEngine.js'
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({

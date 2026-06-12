@@ -9,14 +9,14 @@ import type {
   SaleItemStatus,
   SaleStatus,
   SettlementStatus,
-} from '@/domain/enums'
+} from '../domain/enums.js'
 import type {
   DateTimeString,
   EntityId,
   JsonObject,
   MoneyAmount,
   Percentage,
-} from '@/types/primitives'
+} from '../types/primitives.js'
 
 export interface SaleClientLabelPayload {
   saleClientId: EntityId

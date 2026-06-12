@@ -1,15 +1,15 @@
 import { z } from 'zod'
-import { workerSettlementSchema } from './domainSchemas'
+import { workerSettlementSchema } from './domainSchemas.js'
 import {
   workerSettlementCalculatedEventSchema,
   workerSettlementMarkedPaidEventSchema,
-} from './eventSchemas'
+} from './eventSchemas.js'
 import {
   dateTimeStringSchema,
   entityIdSchema,
   idempotencyKeySchema,
   positiveMoneyAmountSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const createSettlementRequestSchema = z.object({
   workerId: entityIdSchema,

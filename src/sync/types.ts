@@ -1,5 +1,5 @@
-import type { AppEvent } from '@/events'
-import type { EntityId } from '@/types/primitives'
+import type { AppEvent } from '../events/index.js'
+import type { EntityId } from '../types/primitives.js'
 
 export const SyncStatus = {
   Pending: 'Pending',

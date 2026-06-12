@@ -1,12 +1,12 @@
-import { validateIncomingEvent } from '@/backend/events/validation'
-import { translateSubmitSaleIntent, translateRequestRefundIntent, translateApproveRefundIntent, translateRejectRefundIntent } from './intents'
-import type { SubmitSaleIntent, RequestRefundIntent, ApproveRefundIntent, RejectRefundIntent } from './intents'
-import type { AppEvent } from '@/events'
-import { withDeterministicIdempotencyKey } from './idempotency'
-import { createNetworkDetector, type NetworkChangeCallback, type NetworkDetectorOptions } from './networkDetector'
-import { QueueProcessor, createBackendSyncTransport } from './queueProcessor'
-import { createOutboxStore, type OutboxStore, type OutboxStoreOptions } from './outbox/outboxStore'
-import type { NetworkSubscription, QueueProcessResult, QueueProcessorOptions, SyncTransport } from './types'
+import { validateIncomingEvent } from '../backend/events/validation.js'
+import { translateSubmitSaleIntent, translateRequestRefundIntent, translateApproveRefundIntent, translateRejectRefundIntent } from './intents.js'
+import type { SubmitSaleIntent, RequestRefundIntent, ApproveRefundIntent, RejectRefundIntent } from './intents.js'
+import type { AppEvent } from '../events/index.js'
+import { withDeterministicIdempotencyKey } from './idempotency.js'
+import { createNetworkDetector, type NetworkChangeCallback, type NetworkDetectorOptions } from './networkDetector.js'
+import { QueueProcessor, createBackendSyncTransport } from './queueProcessor.js'
+import { createOutboxStore, type OutboxStore, type OutboxStoreOptions } from './outbox/outboxStore.js'
+import type { NetworkState, NetworkSubscription, QueueProcessResult, QueueProcessorOptions, SyncTransport } from './types.js'
 
 export interface SyncEngineOptions {
   outbox?: OutboxStore
@@ -45,7 +45,7 @@ export class SyncEngine {
       return
     }
 
-    this.subscription = this.networkDetector.subscribeToNetworkChanges((state) => {
+    this.subscription = this.networkDetector.subscribeToNetworkChanges((state: NetworkState) => {
       if (this.autoFlushOnReconnect && state.online) {
         void this.flushOnReconnect()
       }

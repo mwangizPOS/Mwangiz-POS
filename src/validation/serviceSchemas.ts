@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { serviceSchema } from './domainSchemas'
+import { serviceSchema } from './domainSchemas.js'
 import {
   entityIdSchema,
   moneyAmountSchema,
   percentageSchema,
   shortTextSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const createServiceRequestSchema = z.object({
   name: shortTextSchema,

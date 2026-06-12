@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { appEventSchema } from './eventSchemas'
+import { appEventSchema } from './eventSchemas.js'
 import {
   entityIdSchema,
   idempotencyKeySchema,
@@ -8,7 +8,7 @@ import {
   phoneSchema,
   shortTextSchema,
   uuidSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const eventIngestionRequestSchema = appEventSchema
 

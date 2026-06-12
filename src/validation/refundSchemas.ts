@@ -1,15 +1,15 @@
 import { z } from 'zod'
-import { refundSchema, refundTargetSchema, refundTypeSchema } from './domainSchemas'
+import { refundSchema, refundTargetSchema, refundTypeSchema } from './domainSchemas.js'
 import {
   refundApprovedEventSchema,
   refundRequestedEventSchema,
-} from './eventSchemas'
+} from './eventSchemas.js'
 import {
   entityIdSchema,
   idempotencyKeySchema,
   longTextSchema,
   positiveMoneyAmountSchema,
-} from './sharedSchemas'
+} from './sharedSchemas.js'
 
 export const createRefundRequestSchema = z.object({
   saleId: entityIdSchema.nullable().optional(),
